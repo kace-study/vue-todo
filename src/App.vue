@@ -18,6 +18,7 @@
 
 <script>
 import Todo from '@/components/Todo'
+import db from '@/firebase/init'
 
 export default {
   name: 'app',
@@ -34,14 +35,12 @@ export default {
   methods: {
     addTodo() {
       if (this.input) {
-        // create a new todo item
-        let newTodoItem = {
+        db.collection('items').add({
           title: this.input,
-          isCompleted: false,
-          id: this.todoItems.length + 1
-        }
-        // add to array
-        this.todoItems.push(newTodoItem)
+          isCompleted: false
+        })
+        // eslint-disable-next-line
+        .catch(console.log)
         this.input = null
         this.feedback = null
       } else {
@@ -49,22 +48,45 @@ export default {
       }
     },
     deleteAll() {
-      this.todoItems.splice(0, this.todoItems.length);
+      let ref = db.collection("items")
+      this.todoItems.forEach(deleteItem => {
+        ref.doc(deleteItem.id).delete()
+          .then(() => {
+            this.todoItems.filter(item => {
+              return item.id !== deleteItem.id
+            })
+          })
+          // eslint-disable-next-line
+          .catch(console.log);
+      })
     },
     onTodoToggled(newTodoItem) {
-      this.todoItems.forEach(todoItem => {
-        if (todoItem.id === newTodoItem.id) {
-          todoItem.isCompleted =  !todoItem.isCompleted
-        } 
-      })
+      db.collection('items').doc(newTodoItem.id).update({
+          isCompleted:  !newTodoItem.isCompleted
+        })
+        .then(() => {
+          this.todoItems.forEach(todoItem => {
+            if (todoItem.id === newTodoItem.id) {
+              todoItem.isCompleted =  !newTodoItem.isCompleted
+            } 
+          })
+        })
+        // eslint-disable-next-line
+        .catch(console.log)
     }
   },
   created() {
-    this.todoItems = [
-      { title: 'Vue Practice', isCompleted: true, id: '1'},
-      { title: 'Using firebase to deploy application', isCompleted: false, id: '2'},
-      { title: 'Upload codes to github', isCompleted: true, id: '3'}
-    ]
+    db.collection('items').onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+          // eslint-disable-next-line
+          console.log(change.type, change)
+          if (change.type == 'added') {
+            let item = change.doc.data()
+            item.id = change.doc.id
+            this.todoItems.push(item)
+          }
+        })
+      })
   }
 }
 </script>
